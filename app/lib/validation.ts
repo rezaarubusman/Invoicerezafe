@@ -52,11 +52,6 @@ export type LoginValues =
 export type RegisterValues =
   z.infer<typeof registerSchema>;
 
-
-/* -------------------------------- */
-/* Password checks */
-/* -------------------------------- */
-
 export const passwordChecks = (
   password: string
 ) => [
@@ -82,11 +77,6 @@ export const passwordChecks = (
   },
 ];
 
-
-/* -------------------------------- */
-/* Password strength */
-/* -------------------------------- */
-
 export const passwordStrength = (
   password: string
 ) => {
@@ -111,3 +101,12 @@ export const passwordStrength = (
     label: labels[score],
   };
 };
+
+export const forgotPasswordSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .min(1, "Email is required")
+    .email("Please enter a valid email address")
+    .max(255, "Email must be less than 255 characters"),
+});
