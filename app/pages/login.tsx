@@ -29,9 +29,7 @@ export default function LoginPage() {
 
       toast.success("Logged in successfully");
 
-      navigate({
-        to: "/dashboard",
-      });
+      navigate("/home" );
     } catch (error: any) {
       const message =
         error?.response?.data?.message ||

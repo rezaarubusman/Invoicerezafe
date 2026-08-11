@@ -25,17 +25,11 @@ export const registerSchema = z
 
     password: z
       .string()
-      .min(
-        8,
-        "Password must be at least 8 characters"
-      ),
+      .min( 8, "Password must be at least 8 characters" ),
 
     confirmPassword: z
       .string()
-      .min(
-        1,
-        "Please confirm your password"
-      ),
+      .min( 1, "Please confirm your password" ),
   })
   .refine(
     (data) =>
@@ -52,9 +46,7 @@ export type LoginValues =
 export type RegisterValues =
   z.infer<typeof registerSchema>;
 
-export const passwordChecks = (
-  password: string
-) => [
+export const passwordChecks = ( password: string ) => [
   {
     label: "At least 8 characters",
     ok: password.length >= 8,
@@ -77,9 +69,7 @@ export const passwordChecks = (
   },
 ];
 
-export const passwordStrength = (
-  password: string
-) => {
+export const passwordStrength = ( password: string ) => {
   const checks =
     passwordChecks(password);
 
@@ -110,3 +100,19 @@ export const forgotPasswordSchema = z.object({
     .email("Please enter a valid email address")
     .max(255, "Email must be less than 255 characters"),
 });
+
+export const resetPasswordSchema = z
+  .object({
+    password: z
+      .string()
+      .min(8, "Password must be at least 8 characters")
+      .max(100, "Password must be less than 100 characters"),
+
+    confirmPassword: z
+      .string()
+      .min(1, "Please confirm your password"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
