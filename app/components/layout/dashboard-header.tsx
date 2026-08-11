@@ -68,7 +68,6 @@ export function DashboardHeader() {
     <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
-          {/* Mobile menu */}
           <Sheet
             open={mobileOpen}
             onOpenChange={setMobileOpen}
@@ -104,7 +103,6 @@ export function DashboardHeader() {
             </SheetContent>
           </Sheet>
 
-          {/* Breadcrumb */}
           <Breadcrumb className="min-w-0">
             <BreadcrumbList>
               <BreadcrumbItem className="hidden sm:inline-flex">
@@ -141,9 +139,7 @@ export function DashboardHeader() {
           </Breadcrumb>
         </div>
 
-        {/* Header actions */}
         <div className="flex shrink-0 items-center gap-2">
-          {/* New invoice */}
           <Button
             asChild
             size="sm"
@@ -228,7 +224,6 @@ export function DashboardHeader() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Account */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
