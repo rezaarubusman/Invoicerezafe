@@ -1,13 +1,15 @@
-import type { Route } from "./+types/home";
-import { Welcome } from "../welcome/welcome";
+export default function HomePage() {
+  return (
+    <main className="flex min-h-screen items-center justify-center">
+      <div className="text-center">
+        <h1 className="text-3xl font-bold">
+          Invoice Management
+        </h1>
 
-export function meta({}: Route.MetaArgs) {
-  return [
-    { title: "New React Router App" },
-    { name: "description", content: "Welcome to React Router!" },
-  ];
-}
-
-export default function Home() {
-  return <Welcome />;
+        <p className="mt-2 text-muted-foreground">
+          Welcome to Invoice Management
+        </p>
+      </div>
+    </main>
+  );
 }

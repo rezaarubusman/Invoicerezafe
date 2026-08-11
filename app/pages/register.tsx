@@ -52,12 +52,7 @@ export default function RegisterPage() {
 
       toast.success(response.message);
 
-      navigate({
-        to: "/verify-email",
-        search: {
-          email: values.email,
-        },
-      });
+      navigate("/verify-email");
     } catch (error: any) {
       const message =
         error?.response?.data?.message ||
