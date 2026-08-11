@@ -5,6 +5,15 @@ export const emailSchema = z
   .min(1, "Email is required")
   .email("Enter a valid email address");
 
+  export const passwordSchema = z
+  .string()
+  .min(8, "Password must be at least 8 characters")
+  .max(100, "Password must be less than 100 characters")
+  .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+  .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+  .regex(/\d/, "Password must contain at least one number")
+  .regex(/[^A-Za-z0-9]/,"Password must contain at least one special character");
+
 export const phoneSchema = z
   .string()
   .min(1, "Phone number is required")
@@ -33,21 +42,18 @@ export const registerSchema = z
       .trim()
       .email("Please enter a valid email address"),
 
-    password: z
-      .string()
-      .min( 8, "Password must be at least 8 characters" ),
+    password: passwordSchema,
 
     confirmPassword: z
       .string()
-      .min( 1, "Please confirm your password" ),
+      .min(1, "Please confirm your password"),
   })
   .refine(
-    (data) =>
-      data.password === data.confirmPassword,
+    (data) => data.password === data.confirmPassword,
     {
       message: "Passwords do not match",
       path: ["confirmPassword"],
-    }
+    },
   );
 
 export type LoginValues =
@@ -113,21 +119,21 @@ export const forgotPasswordSchema = z.object({
 
 export const resetPasswordSchema = z
   .object({
-    password: z
-      .string()
-      .min(8, "Password must be at least 8 characters")
-      .max(100, "Password must be less than 100 characters"),
+    password: passwordSchema,
 
     confirmPassword: z
       .string()
       .min(1, "Please confirm your password"),
   })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords do not match",
-    path: ["confirmPassword"],
-  });
+  .refine(
+    (data) => data.password === data.confirmPassword,
+    {
+      message: "Passwords do not match",
+      path: ["confirmPassword"],
+    },
+  );
 
-  export const clientSchema = z.object({
+export const clientSchema = z.object({
   name: z.string().trim().min(2, "Client name is required").max(80),
   company: z.string().trim().max(80).optional().or(z.literal("")),
   email: emailSchema,
@@ -248,3 +254,26 @@ export const profileSchema = z.object({
   name: z.string().trim().min(2, "Name is required").max(80),
   email: emailSchema,
 });
+
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Current password is required"),
+    newPassword: passwordSchema,
+    confirmPassword: z.string().min(1, "Please confirm your password"),
+  })
+  .refine((v) => v.newPassword === v.confirmPassword, {
+    path: ["confirmPassword"],
+    message: "Passwords do not match",
+  });
+
+export const LOGO_MAX_BYTES = 2 * 1024 * 1024;
+export const LOGO_TYPES = ["image/jpeg", "image/jpg", "image/png"];
+
+export function validateLogoFile(file: File): string | null {
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  if (!LOGO_TYPES.includes(file.type) || !["jpg", "jpeg", "png"].includes(ext)) {
+    return "Only JPG, JPEG and PNG files are allowed";
+  }
+  if (file.size > LOGO_MAX_BYTES) return "File is too large. Maximum size is 2 MB";
+  return null;
+}

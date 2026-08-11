@@ -18,7 +18,7 @@ export default [
     route("clients", "pages/client.tsx"),
     route("clients/:clientId", "pages/clientid.tsx"),
     route("products", "pages/product.tsx"),
-    //route("settings", "pages/settings.tsx"),
+    route("settings", "pages/setting.tsx"),
   ]),
 
 ] satisfies RouteConfig;
