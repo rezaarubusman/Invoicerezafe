@@ -9,6 +9,26 @@ import { Field, FieldError, FieldLabel } from "~/components/ui/field";
 import { loginSchema, type LoginValues } from "~/lib/validation";
 import { useAuthStore } from "~/store/auth-store";
 
+export function meta() {
+  return [
+    {
+      title: "Login — Fakturia",
+    },
+    {
+      name: "description",
+      content: "Login",
+    },
+    {
+      property: "og:title",
+      content: "Login — Fakturia",
+    },
+    {
+      property: "og:description",
+      content: "Login.",
+    },
+  ];
+}
+
 export default function LoginPage() {
   const navigate = useNavigate();
 

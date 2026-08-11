@@ -11,11 +11,13 @@ export default [
 
   layout("layout/dashboard-layout-main.tsx", [
     route("dashboard", "pages/dashboard.tsx"),
-    //route("invoices", "pages/invoices.tsx"),
+    route("invoices", "pages/invoice.tsx"),
+    route("invoices/new", "pages/newinvoice.tsx"),
+    route("invoices/:invoiceId", "pages/invoiceid.tsx"),
+    route("recurring-invoices", "pages/recurring-invoice.tsx"),
     route("clients", "pages/client.tsx"),
     route("clients/:clientId", "pages/clientid.tsx"),
     route("products", "pages/product.tsx"),
-    //route("recurring-invoices", "pages/recurring-invoices.tsx"),
     //route("settings", "pages/settings.tsx"),
   ]),
 

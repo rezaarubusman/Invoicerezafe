@@ -11,6 +11,26 @@ import { Field, FieldContent, FieldError, FieldLabel } from "~/components/ui/fie
 import { registerSchema, type RegisterValues, passwordChecks, passwordStrength } from "~/lib/validation";
 import { useAuthStore } from "~/store/auth-store";
 
+export function meta() {
+  return [
+    {
+      title: "Register — Fakturia",
+    },
+    {
+      name: "description",
+      content: "Register",
+    },
+    {
+      property: "og:title",
+      content: "Regsiter — Fakturia",
+    },
+    {
+      property: "og:description",
+      content: "Register.",
+    },
+  ];
+}
+
 export default function RegisterPage() {
   const navigate = useNavigate();
 
