@@ -14,7 +14,7 @@ export default [
     //route("invoices", "pages/invoices.tsx"),
     route("clients", "pages/client.tsx"),
     route("clients/:clientId", "pages/clientid.tsx"),
-    //route("products", "pages/products.tsx"),
+    route("products", "pages/product.tsx"),
     //route("recurring-invoices", "pages/recurring-invoices.tsx"),
     //route("settings", "pages/settings.tsx"),
   ]),
