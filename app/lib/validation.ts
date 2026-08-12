@@ -116,6 +116,8 @@ export const forgotPasswordSchema = z.object({
     .email("Please enter a valid email address")
     .max(255, "Email must be less than 255 characters"),
 });
+export type ForgotPasswordValues =
+  z.infer<typeof forgotPasswordSchema>;
 
 export const resetPasswordSchema = z
   .object({
@@ -132,6 +134,8 @@ export const resetPasswordSchema = z
       path: ["confirmPassword"],
     },
   );
+export type ResetPasswordValues =
+  z.infer<typeof resetPasswordSchema>;
 
 export const clientSchema = z.object({
   name: z.string().trim().min(2, "Client name is required").max(80),
@@ -265,6 +269,8 @@ export const changePasswordSchema = z
     path: ["confirmPassword"],
     message: "Passwords do not match",
   });
+export type ChangePasswordValues =
+  z.infer<typeof changePasswordSchema>;
 
 export const LOGO_MAX_BYTES = 2 * 1024 * 1024;
 export const LOGO_TYPES = ["image/jpeg", "image/jpg", "image/png"];

@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select";
 import { PageHeader } from "~/components/common/page-parts";
 import { useAppStore } from "~/store/app-store";
+import { useAuthStore } from "~/store/auth-store";
 import { businessProfileSchema, changePasswordSchema, invoiceSettingsSchema, passwordChecks, profileSchema, validateLogoFile } from "~/lib/validation";
 import { PAYMENT_TERMS, type PaymentTerm } from "~/data/types";
 
@@ -59,6 +60,14 @@ export default function SettingsPage() {
     user,
     updateUser,
   } = useAppStore();
+
+  const changePassword = useAuthStore(
+    (state) => state.changePassword
+  );
+
+  const isAuthLoading = useAuthStore(
+    (state) => state.isLoading
+  );
 
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -629,7 +638,8 @@ export default function SettingsPage() {
               </ul>
 
               <Button
-                onClick={() => {
+                disabled={isAuthLoading}
+                onClick={async () => {
                   const result =
                     changePasswordSchema.safeParse(pwd);
 
@@ -642,18 +652,33 @@ export default function SettingsPage() {
 
                   setPwdErrors({});
 
-                  setPwd({
-                    currentPassword: "",
-                    newPassword: "",
-                    confirmPassword: "",
-                  });
+                  try {
+                    const response =
+                      await changePassword(
+                        result.data
+                      );
 
-                  toast.success(
-                    "Password updated",
-                  );
+                    setPwd({
+                      currentPassword: "",
+                      newPassword: "",
+                      confirmPassword: "",
+                    });
+
+                    toast.success(
+                      response.message,
+                    );
+                  } catch (error: any) {
+                    const message =
+                      error?.response?.data?.message ||
+                      "Failed to update password";
+
+                    toast.error(message);
+                  }
                 }}
               >
-                Update password
+                {isAuthLoading
+                  ? "Updating password..."
+                  : "Update password"}
               </Button>
             </CardContent>
           </Card>

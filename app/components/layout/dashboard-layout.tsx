@@ -12,9 +12,9 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
         <SidebarNav />
         <div className="mt-auto p-4">
           <div className="rounded-xl border border-sidebar-border bg-background p-4">
-            <p className="text-sm font-semibold text-foreground">Demo workspace</p>
+            <p className="text-sm font-semibold text-foreground">Fakturia workspace</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              All data on this prototype is local sample data.
+              Data is synced from your backend account.
             </p>
           </div>
         </div>

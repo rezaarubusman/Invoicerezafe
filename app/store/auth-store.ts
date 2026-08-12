@@ -1,7 +1,13 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { axiosInstance } from "~/lib/axios";
-import type { LoginValues, RegisterValues } from "~/lib/validation";
+import type {
+  ChangePasswordValues,
+  ForgotPasswordValues,
+  LoginValues,
+  RegisterValues,
+  ResetPasswordValues,
+} from "~/lib/validation";
 
 interface AuthUser {
   id: string;
@@ -22,6 +28,10 @@ interface RegisterResponse {
   user: AuthUser;
 }
 
+interface MessageResponse {
+  message: string;
+}
+
 interface AuthState {
   user: AuthUser | null;
   accessToken: string | null;
@@ -36,6 +46,28 @@ interface AuthState {
     data: RegisterValues
   ) => Promise<RegisterResponse>;
 
+  verifyEmail: (
+    token: string
+  ) => Promise<MessageResponse>;
+
+  resendVerification: (
+    email: string
+  ) => Promise<MessageResponse>;
+
+  forgotPassword: (
+    data: ForgotPasswordValues
+  ) => Promise<MessageResponse>;
+
+  resetPassword: (
+    data: ResetPasswordValues & {
+      token: string;
+    }
+  ) => Promise<MessageResponse>;
+
+  changePassword: (
+    data: ChangePasswordValues
+  ) => Promise<MessageResponse>;
+
   logout: () => Promise<void>;
 
   getCurrentUser: () => Promise<void>;
@@ -46,7 +78,7 @@ interface AuthState {
 export const useAuthStore =
   create<AuthState>()(
     persist(
-      (set) => ({
+      (set, get) => ({
         user: null,
         accessToken: null,
         isAuthenticated: false,
@@ -119,17 +151,175 @@ export const useAuthStore =
           }
         },
 
+        verifyEmail: async (token) => {
+          set({
+            isLoading: true,
+          });
+
+          try {
+            const response =
+              await axiosInstance.post<MessageResponse>(
+                "/auth/verify-email",
+                {
+                  token,
+                }
+              );
+
+            set({
+              isLoading: false,
+            });
+
+            return response.data;
+          } catch (error) {
+            set({
+              isLoading: false,
+            });
+
+            throw error;
+          }
+        },
+
+        resendVerification: async (email) => {
+          set({
+            isLoading: true,
+          });
+
+          try {
+            const response =
+              await axiosInstance.post<MessageResponse>(
+                "/auth/resend-verification",
+                {
+                  email,
+                }
+              );
+
+            set({
+              isLoading: false,
+            });
+
+            return response.data;
+          } catch (error) {
+            set({
+              isLoading: false,
+            });
+
+            throw error;
+          }
+        },
+
+        forgotPassword: async (data) => {
+          set({
+            isLoading: true,
+          });
+
+          try {
+            const response =
+              await axiosInstance.post<MessageResponse>(
+                "/auth/forgot-password",
+                {
+                  email: data.email,
+                }
+              );
+
+            set({
+              isLoading: false,
+            });
+
+            return response.data;
+          } catch (error) {
+            set({
+              isLoading: false,
+            });
+
+            throw error;
+          }
+        },
+
+        resetPassword: async (data) => {
+          set({
+            isLoading: true,
+          });
+
+          try {
+            const response =
+              await axiosInstance.post<MessageResponse>(
+                "/auth/reset-password",
+                {
+                  token: data.token,
+                  password: data.password,
+                }
+              );
+
+            set({
+              isLoading: false,
+            });
+
+            return response.data;
+          } catch (error) {
+            set({
+              isLoading: false,
+            });
+
+            throw error;
+          }
+        },
+
+        changePassword: async (data) => {
+          set({
+            isLoading: true,
+          });
+
+          try {
+            const response =
+              await axiosInstance.patch<MessageResponse>(
+                "/auth/change-password",
+                {
+                  currentPassword:
+                    data.currentPassword,
+                  newPassword:
+                    data.newPassword,
+                }
+              );
+
+            set({
+              isLoading: false,
+            });
+
+            return response.data;
+          } catch (error) {
+            set({
+              isLoading: false,
+            });
+
+            throw error;
+          }
+        },
+
         logout: async () => {
+          const token =
+            get().accessToken;
+
+          set({
+            user: null,
+            accessToken: null,
+            isAuthenticated: false,
+          });
+
           try {
             await axiosInstance.post(
-              "/auth/logout"
+              "/auth/logout",
+              undefined,
+              token
+                ? {
+                    headers: {
+                      Authorization:
+                        `Bearer ${token}`,
+                    },
+                  }
+                : undefined
             );
-          } finally {
-            set({
-              user: null,
-              accessToken: null,
-              isAuthenticated: false,
-            });
+          } catch {
+            // Local auth state should still be cleared if the server session is already gone.
           }
         },
 

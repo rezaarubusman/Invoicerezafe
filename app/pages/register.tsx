@@ -72,7 +72,11 @@ export default function RegisterPage() {
 
       toast.success(response.message);
 
-      navigate("/verify-email");
+      navigate(
+        `/verify-email?email=${encodeURIComponent(
+          values.email,
+        )}`
+      );
     } catch (error: any) {
       const message =
         error?.response?.data?.message ||

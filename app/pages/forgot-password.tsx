@@ -8,6 +8,7 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Field, FieldError, FieldLabel } from "~/components/ui/field";
 import { forgotPasswordSchema } from "~/lib/validation";
+import { useAuthStore } from "~/store/auth-store";
 
 export function meta() {
   return [
@@ -38,10 +39,27 @@ export default function ForgotPasswordPage() {
     },
   });
 
-  const onSubmit = (values: Values) => {
-    console.log(values);
+  const forgotPassword = useAuthStore(
+    (state) => state.forgotPassword
+  );
 
-    toast.success("Password reset link sent");
+  const isLoading = useAuthStore(
+    (state) => state.isLoading
+  );
+
+  const onSubmit = async (values: Values) => {
+    try {
+      const response =
+        await forgotPassword(values);
+
+      toast.success(response.message);
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        "Failed to send reset link";
+
+      toast.error(message);
+    }
   };
 
   return (
@@ -88,20 +106,13 @@ export default function ForgotPasswordPage() {
         <Button
           type="submit"
           className="w-full"
+          disabled={isLoading}
         >
-          Send reset link
+          {isLoading
+            ? "Sending reset link..."
+            : "Send reset link"}
         </Button>
       </form>
-
-      <Button
-        asChild
-        variant="ghost"
-        className="w-full"
-      >
-        <Link to="/reset-password">
-          Open reset password screen
-        </Link>
-      </Button>
     </AuthShell>
   );
 }

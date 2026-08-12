@@ -8,6 +8,7 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Field, FieldError, FieldLabel } from "~/components/ui/field";
 import { resetPasswordSchema } from "~/lib/validation";
+import { useAuthStore } from "~/store/auth-store";
 
 export function meta() {
   return [
@@ -35,6 +36,14 @@ export default function ResetPasswordPage() {
 
   const token = searchParams.get("token");
 
+  const resetPassword = useAuthStore(
+    (state) => state.resetPassword
+  );
+
+  const isLoading = useAuthStore(
+    (state) => state.isLoading
+  );
+
   const form = useForm<Values>({
     resolver: zodResolver(resetPasswordSchema),
     defaultValues: {
@@ -44,17 +53,29 @@ export default function ResetPasswordPage() {
   });
 
   const onSubmit = async (values: Values) => {
+    if (!token) {
+      toast.error("Reset token is missing");
+      return;
+    }
+
     try {
-      console.log({
+      const response =
+        await resetPassword({
         token,
         password: values.password,
+        confirmPassword:
+          values.confirmPassword,
       });
 
-      toast.success("Password updated");
+      toast.success(response.message);
 
       navigate("/login");
-    } catch (error) {
-      toast.error("Failed to update password");
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        "Failed to update password";
+
+      toast.error(message);
     }
   };
 
@@ -128,8 +149,11 @@ export default function ResetPasswordPage() {
         <Button
           type="submit"
           className="w-full"
+          disabled={isLoading || !token}
         >
-          Update password
+          {isLoading
+            ? "Updating password..."
+            : "Update password"}
         </Button>
       </form>
     </AuthShell>
