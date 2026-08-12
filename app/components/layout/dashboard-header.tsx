@@ -11,6 +11,7 @@ import { Badge } from "~/components/ui/badge";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { BrandMark, SidebarNav } from "./sidebar-nav";
 import { useAppStore } from "~/store/app-store";
+import { useAuthStore } from "~/store/auth-store";
 import { formatDate, initials } from "~/lib/format";
 import { cn } from "~/lib/utils";
 
@@ -54,9 +55,21 @@ export function DashboardHeader() {
   const {
     notifications,
     markAllNotificationsRead,
-    user,
-    logout,
+    user: appUser,
   } = useAppStore();
+
+  const authUser = useAuthStore(
+    (state) => state.user
+  );
+
+  const logout = useAuthStore(
+    (state) => state.logout
+  );
+
+  const user = {
+    name: authUser?.name || appUser.name,
+    email: authUser?.email || appUser.email,
+  };
 
   const navigate = useNavigate();
 
@@ -272,14 +285,16 @@ export function DashboardHeader() {
               <DropdownMenuSeparator />
 
               <DropdownMenuItem
-                onClick={() => {
-                  logout();
+                onClick={async () => {
+                  navigate("/login", {
+                    replace: true,
+                  });
+
+                  await logout();
 
                   toast.success(
                     "You have been signed out",
                   );
-
-                  navigate("/login");
                 }}
               >
                 <LogOut

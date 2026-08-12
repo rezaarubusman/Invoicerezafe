@@ -2,21 +2,11 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
-import {
-  mockBusiness,
-  mockCategories,
-  mockClients,
-  mockInvoiceSettings,
-  mockInvoices,
-  mockNotifications,
-  mockProducts,
-  mockRecurring,
-  mockUser,
-} from "~/data/mock";
 import type {
   AppNotification,
   BusinessProfile,
@@ -31,6 +21,31 @@ import type {
   RecurringStatus,
   UserProfile,
 } from "~/data/types";
+import { useAuthStore } from "~/store/auth-store";
+
+const emptyUser: UserProfile = {
+  name: "",
+  email: "",
+  emailVerified: false,
+};
+
+const emptyBusiness: BusinessProfile = {
+  name: "",
+  email: "",
+  phone: "",
+  address: "",
+  website: "",
+  taxId: "",
+  logoDataUrl: null,
+};
+
+const defaultInvoiceSettings: InvoiceSettings = {
+  currency: "IDR",
+  defaultPaymentTerms: "due_on_receipt",
+  defaultNotes: "",
+  defaultTerms: "",
+  numberPrefix: "INV",
+};
 
 let idCounter = 0;
 function nextId(prefix: string): string {
@@ -89,16 +104,34 @@ interface AppStore {
 const AppStoreContext = createContext<AppStore | null>(null);
 
 export function AppStoreProvider({ children }: { children: ReactNode }) {
+  const authUser = useAuthStore(
+    (state) => state.user
+  );
+
   const [authenticated, setAuthenticated] = useState(false);
-  const [user, setUser] = useState<UserProfile>(mockUser);
-  const [business, setBusiness] = useState<BusinessProfile>(mockBusiness);
-  const [invoiceSettings, setInvoiceSettings] = useState<InvoiceSettings>(mockInvoiceSettings);
-  const [clients, setClients] = useState<Client[]>(mockClients);
-  const [categories, setCategories] = useState<Category[]>(mockCategories);
-  const [products, setProducts] = useState<Product[]>(mockProducts);
-  const [invoices, setInvoices] = useState<Invoice[]>(mockInvoices);
-  const [recurring, setRecurring] = useState<RecurringInvoice[]>(mockRecurring);
-  const [notifications, setNotifications] = useState<AppNotification[]>(mockNotifications);
+  const [user, setUser] = useState<UserProfile>(emptyUser);
+  const [business, setBusiness] = useState<BusinessProfile>(emptyBusiness);
+  const [invoiceSettings, setInvoiceSettings] = useState<InvoiceSettings>(defaultInvoiceSettings);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [recurring, setRecurring] = useState<RecurringInvoice[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+
+  useEffect(() => {
+    if (!authUser) {
+      setUser(emptyUser);
+      return;
+    }
+
+    setUser({
+      name: authUser.name,
+      email: authUser.email,
+      emailVerified:
+        authUser.isEmailVerified,
+    });
+  }, [authUser]);
 
   const getClient = useCallback((id: string) => clients.find((c) => c.id === id), [clients]);
 
