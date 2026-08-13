@@ -1,32 +1,23 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
-import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip as RTooltip, XAxis, YAxis } from "recharts";
-import { AlertTriangle, CheckCircle2, Clock, Wallet } from "lucide-react";
+import { Line, LineChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip as RTooltip, XAxis, YAxis } from "recharts";
+import { AlertTriangle, CheckCircle2, Clock, Wallet, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/components/ui/table";
-import { PageHeader, StatCard } from "~/components/common/page-parts";
+import { PageHeader } from "~/components/common/page-parts";
 import { InvoiceStatusBadge } from "~/components/common/status-badges";
-import { useAppStore } from "~/store/app-store";
 import { invoiceTotals } from "~/data/types";
 import { formatDate, formatIDR, daysUntil } from "~/lib/format";
+import { axiosInstance } from "~/lib/axios";
+import { toast } from "sonner";
 
 export function meta() {
   return [
     { title: "Dashboard — Fakturia" },
     {
       name: "description",
-      content:
-        "Revenue, outstanding balances and invoice activity at a glance.",
-    },
-    {
-      property: "og:title",
-      content: "Dashboard — Fakturia",
-    },
-    {
-      property: "og:description",
-      content:
-        "Track revenue, outstanding and overdue invoices.",
+      content: "Revenue, outstanding balances and invoice activity at a glance.",
     },
   ];
 }
@@ -39,7 +30,46 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function DashboardPage() {
-  const { invoices, clients } = useAppStore();
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // State untuk melacak status legend mana yang sedang di-hover
+  const [hoveredStatus, setHoveredStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setIsLoading(true);
+        const res = await axiosInstance.get("/invoice");
+        
+        const mappedInvoices = res.data.data.map((inv: any) => ({
+          ...inv,
+          status: inv.status?.toLowerCase() || "draft",
+          payment: inv.paymentDate ? {
+            date: inv.paymentDate,
+            method: inv.paymentMethod,
+            amount: Number(inv.amountPaid || 0),
+            reference: inv.paymentReference
+          } : null,
+          items: (inv.items || []).map((item: any) => ({
+            ...item,
+            quantity: Number(item.quantity || 1),
+            unitPrice: Number(item.unitPrice || 0),
+            discount: Number(item.discount || 0),
+            tax: Number(item.tax || 0),
+          })),
+        }));
+
+        setInvoices(mappedInvoices);
+      } catch (error: any) {
+        toast.error(error?.response?.data?.message || "Failed to fetch dashboard data");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
 
   const stats = useMemo(() => {
     let revenue = 0;
@@ -65,12 +95,7 @@ export default function DashboardPage() {
       }
     }
 
-    return {
-      revenue,
-      outstanding,
-      paid,
-      overdue,
-    };
+    return { revenue, outstanding, paid, overdue };
   }, [invoices]);
 
   const revenueSeries = useMemo(() => {
@@ -80,22 +105,14 @@ export default function DashboardPage() {
       if (inv.status !== "paid" || !inv.payment) {
         continue;
       }
-
       const key = inv.payment.date.slice(0, 7);
-
-      buckets.set(
-        key,
-        (buckets.get(key) ?? 0) +
-          invoiceTotals(inv.items).total,
-      );
+      buckets.set(key, (buckets.get(key) ?? 0) + invoiceTotals(inv.items).total);
     }
 
     return [...buckets.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([month, value]) => ({
-        month: new Date(
-          `${month}-01`,
-        ).toLocaleDateString("en-GB", {
+        month: new Date(`${month}-01`).toLocaleDateString("en-GB", {
           month: "short",
           year: "2-digit",
         }),
@@ -105,25 +122,18 @@ export default function DashboardPage() {
 
   const statusSeries = useMemo(
     () =>
-      ["paid", "pending", "overdue", "draft"].map(
-        (status) => ({
-          name:
-            `${status.charAt(0).toUpperCase()}${status.slice(1)}`,
-          key: status,
-          value: invoices.filter(
-            (invoice) => invoice.status === status,
-          ).length,
-        }),
-      ),
+      ["paid", "pending", "overdue", "draft"].map((status) => ({
+        name: `${status.charAt(0).toUpperCase()}${status.slice(1)}`,
+        key: status,
+        value: invoices.filter((invoice) => invoice.status === status).length,
+      })),
     [invoices],
   );
 
   const recent = useMemo(
     () =>
       [...invoices]
-        .sort((a, b) =>
-          b.issueDate.localeCompare(a.issueDate),
-        )
+        .sort((a, b) => b.issueDate.localeCompare(a.issueDate))
         .slice(0, 6),
     [invoices],
   );
@@ -137,22 +147,18 @@ export default function DashboardPage() {
             daysUntil(invoice.dueDate) >= 0 &&
             daysUntil(invoice.dueDate) <= 45,
         )
-        .sort((a, b) =>
-          a.dueDate.localeCompare(b.dueDate),
-        )
+        .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
         .slice(0, 5),
     [invoices],
   );
 
-  const clientName = (id: string) => {
-    const client = clients.find(
-      (client) => client.id === id,
+  if (isLoading) {
+    return (
+      <div className="flex h-[80vh] w-full items-center justify-center">
+        <Loader2 className="size-10 animate-spin text-muted-foreground" />
+      </div>
     );
-
-    return client
-      ? client.company || client.name
-      : "Unknown client";
-  };
+  }
 
   return (
     <>
@@ -161,94 +167,78 @@ export default function DashboardPage() {
         description="An overview of your invoicing activity."
         actions={
           <Button asChild>
-            <Link to="/invoices/new">
-              New Invoice
-            </Link>
+            <Link to="/invoices/new">New Invoice</Link>
           </Button>
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Total Revenue"
-          value={formatIDR(stats.revenue)}
-          icon={Wallet}
-          hint="All settled invoices"
-        />
+      {/* Baris 1: Total Revenue Full Width */}
+      <Card className="mb-4 shadow-sm">
+        <CardContent className="flex items-center justify-between p-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+              <Wallet className="size-6 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <h2 className="text-3xl font-bold tracking-tight">{formatIDR(stats.revenue)}</h2>
+          </div>
+        </CardContent>
+      </Card>
 
-        <StatCard
-          label="Outstanding"
-          value={formatIDR(stats.outstanding)}
-          icon={Clock}
-          tone="warning"
-          hint="Pending + overdue"
-        />
+      {/* Baris 2: 3 Kolom Stats */}
+      <div className="mb-4 grid gap-4 sm:grid-cols-3">
+        <Card className="shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Clock className="size-4" />
+                <span className="text-sm font-medium">Outstanding</span>
+              </div>
+              <h3 className="text-2xl font-bold">{formatIDR(stats.outstanding)}</h3>
+            </div>
+          </CardContent>
+        </Card>
 
-        <StatCard
-          label="Paid"
-          value={formatIDR(stats.paid)}
-          icon={CheckCircle2}
-          tone="success"
-          hint="Received payments"
-        />
+        <Card className="shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <CheckCircle2 className="size-4 text-success" />
+                <span className="text-sm font-medium">Paid</span>
+              </div>
+              <h3 className="text-2xl font-bold">{formatIDR(stats.paid)}</h3>
+            </div>
+          </CardContent>
+        </Card>
 
-        <StatCard
-          label="Overdue"
-          value={formatIDR(stats.overdue)}
-          icon={AlertTriangle}
-          tone="destructive"
-          hint="Past the due date"
-        />
+        <Card className="shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <AlertTriangle className="size-4 text-destructive" />
+                <span className="text-sm font-medium">Overdue</span>
+              </div>
+              <h3 className="text-2xl font-bold">{formatIDR(stats.overdue)}</h3>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="shadow-sm lg:col-span-2">
+      {/* Baris 3: Diagram 50/50 */}
+      <div className="mb-4 grid gap-4 lg:grid-cols-2">
+        {/* Kiri: Line Chart */}
+        <Card className="shadow-sm">
           <CardHeader>
-            <CardTitle className="text-base">
-              Revenue over time
-            </CardTitle>
+            <CardTitle className="text-base">Revenue over time</CardTitle>
           </CardHeader>
-
           <CardContent className="h-72 pr-2">
-            <ResponsiveContainer
-              width="100%"
-              height="100%"
-            >
-              <AreaChart
-                data={revenueSeries}
-                margin={{
-                  left: 8,
-                  right: 8,
-                }}
-              >
-                <defs>
-                  <linearGradient
-                    id="rev"
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
-                    <stop
-                      offset="0%"
-                      stopColor="var(--primary)"
-                      stopOpacity={0.35}
-                    />
-
-                    <stop
-                      offset="100%"
-                      stopColor="var(--primary)"
-                      stopOpacity={0}
-                    />
-                  </linearGradient>
-                </defs>
-
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="var(--border)"
-                  vertical={false}
-                />
-
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={revenueSeries} margin={{ left: 8, right: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                 <XAxis
                   dataKey="month"
                   tickLine={false}
@@ -256,24 +246,16 @@ export default function DashboardPage() {
                   fontSize={12}
                   stroke="var(--muted-foreground)"
                 />
-
                 <YAxis
-                  tickFormatter={(value: number) =>
-                    `${Math.round(value / 1_000_000)}jt`
-                  }
+                  tickFormatter={(value: number) => `${Math.round(value / 1_000_000)}jt`}
                   tickLine={false}
                   axisLine={false}
                   fontSize={12}
                   stroke="var(--muted-foreground)"
                   width={44}
                 />
-
                 <RTooltip
-                    formatter={(value) =>
-                    typeof value === "number"
-                    ? formatIDR(value)
-                    : "-"
-                    }
+                  formatter={(value) => (typeof value === "number" ? formatIDR(value) : "-")}
                   contentStyle={{
                     background: "var(--popover)",
                     border: "1px solid var(--border)",
@@ -281,48 +263,45 @@ export default function DashboardPage() {
                     color: "var(--popover-foreground)",
                   }}
                 />
-
-                <Area
-                  type="monotone"
-                  dataKey="value"
-                  stroke="var(--primary)"
-                  strokeWidth={2}
-                  fill="url(#rev)"
+                <Line 
+                  type="monotone" 
+                  dataKey="value" 
+                  stroke="var(--primary)" 
+                  strokeWidth={2} 
+                  dot={{ r: 4, strokeWidth: 2 }}
+                  activeDot={{ r: 6 }} 
                 />
-              </AreaChart>
+              </LineChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
+        {/* Kanan: Donut Chart dengan Interaksi Hover */}
         <Card className="shadow-sm">
           <CardHeader>
-            <CardTitle className="text-base">
-              Invoice status
-            </CardTitle>
+            <CardTitle className="text-base">Invoice status</CardTitle>
           </CardHeader>
-
           <CardContent className="h-72">
-            <ResponsiveContainer
-              width="100%"
-              height="100%"
-            >
+            <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={statusSeries}
                   dataKey="value"
                   nameKey="name"
-                  innerRadius={55}
+                  innerRadius={60}
                   outerRadius={85}
                   paddingAngle={3}
                 >
                   {statusSeries.map((entry) => (
-                    <Cell
-                      key={entry.key}
-                      fill={STATUS_COLORS[entry.key]}
+                    <Cell 
+                      key={entry.key} 
+                      fill={STATUS_COLORS[entry.key]} 
+                      /* Logika redup jika elemen lain di hover */
+                      opacity={hoveredStatus === null || hoveredStatus === entry.key ? 1 : 0.3}
+                      style={{ transition: 'opacity 0.3s ease' }}
                     />
                   ))}
                 </Pie>
-
                 <RTooltip
                   contentStyle={{
                     background: "var(--popover)",
@@ -333,22 +312,23 @@ export default function DashboardPage() {
                 />
               </PieChart>
             </ResponsiveContainer>
-
+            
+            {/* Flexbox Legenda dengan event trigger */}
             <ul className="mt-2 grid grid-cols-2 gap-2 text-sm">
               {statusSeries.map((status) => (
-                <li
-                  key={status.key}
-                  className="flex items-center gap-2 text-muted-foreground"
+                <li 
+                  key={status.key} 
+                  className="flex cursor-pointer items-center gap-2 rounded-md p-1 transition-colors hover:bg-muted/50 text-muted-foreground"
+                  onMouseEnter={() => setHoveredStatus(status.key)}
+                  onMouseLeave={() => setHoveredStatus(null)}
                 >
                   <span
-                    className="size-2 rounded-full"
-                    style={{
-                      background:
-                        STATUS_COLORS[status.key],
-                    }}
+                    className="size-3 rounded-full"
+                    style={{ background: STATUS_COLORS[status.key] }}
                   />
-
-                  {status.name} ({status.value})
+                  <span className={hoveredStatus === status.key ? "font-medium text-foreground" : ""}>
+                    {status.name} ({status.value})
+                  </span>
                 </li>
               ))}
             </ul>
@@ -356,24 +336,15 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="shadow-sm lg:col-span-2">
+      {/* Baris 4: Tables 50/50 */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card className="shadow-sm overflow-hidden">
           <CardHeader className="flex-row items-center justify-between">
-            <CardTitle className="text-base">
-              Recent invoices
-            </CardTitle>
-
-            <Button
-              asChild
-              variant="ghost"
-              size="sm"
-            >
-              <Link to="/invoices">
-                View all
-              </Link>
+            <CardTitle className="text-base">Recent invoices</CardTitle>
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/invoices">View all</Link>
             </Button>
           </CardHeader>
-
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <Table>
@@ -381,57 +352,26 @@ export default function DashboardPage() {
                   <TableRow>
                     <TableHead>Invoice</TableHead>
                     <TableHead>Client</TableHead>
-
-                    <TableHead className="hidden md:table-cell">
-                      Issued
-                    </TableHead>
-
-                    <TableHead className="hidden md:table-cell">
-                      Due
-                    </TableHead>
-
-                    <TableHead className="text-right">
-                      Amount
-                    </TableHead>
-
+                    <TableHead className="text-right">Amount</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
-
                 <TableBody>
                   {recent.map((invoice) => (
                     <TableRow key={invoice.id}>
                       <TableCell className="font-medium">
-                        <Link
-                          to={`/invoices/${invoice.id}`}
-                          className="hover:underline"
-                        >
+                        <Link to={`/invoices/${invoice.id}`} className="hover:underline text-primary">
                           {invoice.number}
                         </Link>
                       </TableCell>
-
-                      <TableCell className="max-w-40 truncate">
-                        {clientName(invoice.clientId)}
+                      <TableCell className="max-w-[120px] truncate">
+                        {invoice.client?.company || invoice.client?.name || "Unknown client"}
                       </TableCell>
-
-                      <TableCell className="hidden md:table-cell">
-                        {formatDate(invoice.issueDate)}
-                      </TableCell>
-
-                      <TableCell className="hidden md:table-cell">
-                        {formatDate(invoice.dueDate)}
-                      </TableCell>
-
                       <TableCell className="text-right font-medium">
-                        {formatIDR(
-                          invoiceTotals(invoice.items).total,
-                        )}
+                        {formatIDR(invoiceTotals(invoice.items).total)}
                       </TableCell>
-
                       <TableCell>
-                        <InvoiceStatusBadge
-                          status={invoice.status}
-                        />
+                        <InvoiceStatusBadge status={invoice.status} />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -443,16 +383,11 @@ export default function DashboardPage() {
 
         <Card className="shadow-sm">
           <CardHeader>
-            <CardTitle className="text-base">
-              Upcoming payments
-            </CardTitle>
+            <CardTitle className="text-base">Upcoming payments</CardTitle>
           </CardHeader>
-
           <CardContent className="space-y-3">
             {upcoming.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No payments due in the next 45 days.
-              </p>
+              <p className="text-sm text-muted-foreground">No payments due in the next 45 days.</p>
             ) : (
               upcoming.map((invoice) => (
                 <div
@@ -462,26 +397,19 @@ export default function DashboardPage() {
                   <div className="min-w-0">
                     <Link
                       to={`/invoices/${invoice.id}`}
-                      className="block truncate text-sm font-medium hover:underline"
+                      className="block truncate text-sm font-medium hover:underline text-primary"
                     >
                       {invoice.number}
                     </Link>
-
                     <p className="truncate text-xs text-muted-foreground">
-                      {clientName(invoice.clientId)}
+                      {invoice.client?.company || invoice.client?.name || "Unknown client"}
                     </p>
                   </div>
-
                   <div className="shrink-0 text-right">
                     <p className="text-sm font-semibold">
-                      {formatIDR(
-                        invoiceTotals(invoice.items).total,
-                      )}
+                      {formatIDR(invoiceTotals(invoice.items).total)}
                     </p>
-
-                    <p className="text-xs text-muted-foreground">
-                      in {daysUntil(invoice.dueDate)} days
-                    </p>
+                    <p className="text-xs text-muted-foreground">in {daysUntil(invoice.dueDate)} days</p>
                   </div>
                 </div>
               ))

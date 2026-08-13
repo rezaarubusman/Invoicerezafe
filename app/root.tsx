@@ -2,6 +2,7 @@ import { isRouteErrorResponse, Links, Meta, Outlet, Scripts, ScrollRestoration }
 import type { Route } from "./+types/root";
 import "./app.css";
 import { AppStoreProvider } from "~/store/app-store";
+import { Toaster } from "sonner";
 
 export const links: Route.LinksFunction = () => [
   {
@@ -51,6 +52,7 @@ export default function App() {
   return (
     <AppStoreProvider>
       <Outlet />
+      <Toaster position="bottom-right" richColors />
     </AppStoreProvider>
   );
 }
