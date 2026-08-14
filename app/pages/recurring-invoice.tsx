@@ -75,7 +75,7 @@ export default function RecurringPage() {
         status: inv.reccurringStatus ? String(inv.recurringStatus).toLowerCase() : "active",
         items: inv.items.map((item: any) => ({
           ...item,
-          unitPrice: Number(item.price),
+          unitPrice: Number(item.unitPrice),
           discount: Number(item.discount || 0),
           tax: Number(item.tax || 0),
         })),
@@ -141,10 +141,10 @@ export default function RecurringPage() {
         productId: item.productId || undefined,
         name: item.name,
         description: item.description,
-        quantity: item.quantity,
-        price: item.unitPrice,
-        discount: item.discount,
-        tax: item.tax,
+        quantity: Number(item.quantity),
+        price: Number(item.unitPrice),
+        discount: Number(item.discount),
+        tax: Number(item.tax),
       })),
     };
 

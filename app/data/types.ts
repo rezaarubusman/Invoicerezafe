@@ -51,6 +51,8 @@ export interface Product {
   tax: number;
   categoryId: string;
   status: "active" | "inactive" | "archived";
+  createdAt: string | Date;
+  updatedAt: string | Date;
 }
 
 export type InvoiceStatus = "draft" | "pending" | "paid" | "overdue" | "cancelled";
