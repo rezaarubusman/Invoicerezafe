@@ -33,14 +33,13 @@ export default function DashboardPage() {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  // State untuk melacak status legend mana yang sedang di-hover
   const [hoveredStatus, setHoveredStatus] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setIsLoading(true);
-        const res = await axiosInstance.get("/invoice");
+        const res = await axiosInstance.get("/invoice?limit=10000");
         
         const mappedInvoices = res.data.data.map((inv: any) => ({
           ...inv,
@@ -102,9 +101,10 @@ export default function DashboardPage() {
     const buckets = new Map<string, number>();
 
     for (const inv of invoices) {
-      if (inv.status !== "paid" || !inv.payment) {
+      if (inv.status !== "paid") {
         continue;
       }
+      const dateString = inv.payment?.date || inv.issueDate;
       const key = inv.payment.date.slice(0, 7);
       buckets.set(key, (buckets.get(key) ?? 0) + invoiceTotals(inv.items).total);
     }
@@ -172,7 +172,6 @@ export default function DashboardPage() {
         }
       />
 
-      {/* Baris 1: Total Revenue Full Width */}
       <Card className="mb-4 shadow-sm">
         <CardContent className="flex items-center justify-between p-6">
           <div className="flex items-center gap-3">
@@ -189,7 +188,6 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Baris 2: 3 Kolom Stats */}
       <div className="mb-4 grid gap-4 sm:grid-cols-3">
         <Card className="shadow-sm">
           <CardContent className="p-6">
@@ -228,9 +226,7 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Baris 3: Diagram 50/50 */}
       <div className="mb-4 grid gap-4 lg:grid-cols-2">
-        {/* Kiri: Line Chart */}
         <Card className="shadow-sm">
           <CardHeader>
             <CardTitle className="text-base">Revenue over time</CardTitle>
@@ -276,12 +272,12 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Kanan: Donut Chart dengan Interaksi Hover */}
         <Card className="shadow-sm">
           <CardHeader>
             <CardTitle className="text-base">Invoice status</CardTitle>
           </CardHeader>
-          <CardContent className="h-72">
+          <CardContent className="h-72 flex felx-col p-6 pt-0">
+            <div className="flex-1 min-h-0">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -312,9 +308,9 @@ export default function DashboardPage() {
                 />
               </PieChart>
             </ResponsiveContainer>
+            </div>
             
-            {/* Flexbox Legenda dengan event trigger */}
-            <ul className="mt-2 grid grid-cols-2 gap-2 text-sm">
+            <ul className="mt-2 grid grid-cols-2 gap-2 text-sm shrink-0">
               {statusSeries.map((status) => (
                 <li 
                   key={status.key} 
@@ -336,7 +332,6 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Baris 4: Tables 50/50 */}
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="shadow-sm overflow-hidden">
           <CardHeader className="flex-row items-center justify-between">
