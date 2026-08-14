@@ -125,10 +125,10 @@ export default function NewInvoicePage() {
           productId: item.productId || undefined,
           name: item.name,
           description: item.description,
-          quantity: item.quantity,
-          price: item.unitPrice, 
-          discount: item.discount,
-          tax: item.tax,
+          quantity: Number(item.quantity),
+          price: Number(item.unitPrice), 
+          discount: Number(item.discount || 0),
+          tax: Number(item.tax || 0),
         })),
       };
 

@@ -55,7 +55,7 @@ export default function InvoiceDetailPage() {
 
       setInvoice({
         ...data,
-        number: data.invoiceNumber,
+        number: data.number,
         notes: data.notes || "", 
         terms: data.terms || "", 
         paymentTerms: data.paymentTerms || "due_on_receipt",
@@ -63,7 +63,7 @@ export default function InvoiceDetailPage() {
         
         items: data.items.map((item: any) => ({
           ...item,
-          unitPrice: Number(item.price),
+          unitPrice: Number(item.unitPrice),
           discount: Number(item.discount), 
           tax: Number(item.tax),
         })),
@@ -173,10 +173,10 @@ export default function InvoiceDetailPage() {
           productId: item.productId || undefined,
           name: item.name,
           description: item.description,
-          quantity: item.quantity,
-          price: item.unitPrice,
-          discount: item.discount,
-          tax: item.tax
+          quantity: Number(item.quantity),
+          price: Number(item.unitPrice),
+          discount: Number(item.discount),
+          tax: Number(item.tax)
         })),
       };
 
