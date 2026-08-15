@@ -8,14 +8,16 @@ import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Textarea } from "~/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "~/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select";
 import { EmptyState, PageHeader } from "~/components/common/page-parts";
 import { ConfirmationDialog } from "~/components/common/controls";
 import { InvoiceStatusBadge } from "~/components/common/status-badges";
 import { InvoicePreview } from "~/components/invoices/invoice-parts";
+import { ItemsEditor, TotalsSummary } from "~/components/invoices/invoice-parts";
 import { useAppStore } from "~/store/app-store";
 import { sendInvoiceSchema } from "~/lib/validation";
 import { formatDate, formatIDR, todayISO } from "~/lib/format";
-import { PAYMENT_METHODS, invoiceTotals, paymentTermLabel, type InvoiceStatus } from "~/data/types";
+import { PAYMENT_METHODS, PAYMENT_TERMS, invoiceTotals, paymentTermLabel, type InvoiceStatus } from "~/data/types";
 import { axiosInstance } from "~/lib/axios";
 
 export function meta() {
@@ -45,7 +47,22 @@ export default function InvoiceDetailPage() {
 
   const [markPaidOpen, setMarkPaidOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [finalizeOpen, setFinalizeOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  const [clients, setClients] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState<any>({
+    clientId: "",
+    dueDate: "",
+    paymentTerms: "due_on_receipt",
+    currency: "IDR",
+    notes: "",
+    terms: "",
+    items: []
+  });
 
   const fetchInvoice = async () => {
     try {
@@ -86,7 +103,25 @@ export default function InvoiceDetailPage() {
   };
 
   useEffect(() => {
-    if (invoiceId) fetchInvoice();
+    const fetchDependencies = async () => {
+      try {
+        const [cliRes, prodRes] = await Promise.all([
+          axiosInstance.get("/client"),
+          axiosInstance.get("/product")
+        ]);
+        setClients(cliRes.data.data || []);
+        setProducts(prodRes.data.data || []);
+      } catch (error) {
+        console.error("Failed to fetch clients/products", error);
+      }
+    };
+    fetchDependencies();
+  }, []);
+
+  useEffect(() => {
+    if (invoiceId) {
+      fetchInvoice();
+    }
   }, [invoiceId]);
 
   if (isLoading) {
@@ -145,48 +180,19 @@ export default function InvoiceDetailPage() {
 
     try {
       setIsProcessing(true);
-      if (invoice.status === "draft") {
-        await axiosInstance.patch(`/invoice/${invoice.id}/status`, { status: "PENDING" });
-      }
-      toast.success("Invoice sent successfully");
+      await axiosInstance.post(`/invoice/${invoice.id}/send`, {
+        to: sendForm.to,
+        cc: sendForm.cc,
+        subject: sendForm.subject,
+        message: sendForm.message,
+      });
+
+      toast.success("Invoice sent successfully via email");
       setSendOpen(false);
-      fetchInvoice();
+      fetchInvoice(); 
     } catch (error) {
       toast.error("Failed to send invoice");
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleDuplicate = async () => {
-    try {
-      setIsProcessing(true);
-      
-      const payload = {
-        clientId: invoice.clientId,
-        dueDate: invoice.dueDate,
-        paymentTerms: invoice.paymentTerms,
-        notes: invoice.notes,
-        terms: invoice.terms,
-        isRecurring: false,
-        items: invoice.items.map((item: any) => ({
-          productId: item.productId || undefined,
-          name: item.name,
-          description: item.description,
-          quantity: Number(item.quantity),
-          price: Number(item.unitPrice),
-          discount: Number(item.discount),
-          tax: Number(item.tax)
-        })),
-      };
-
-      const res = await axiosInstance.post("/invoice", payload);
-      const copy = res.data.data;
-      
-      toast.success(`Duplicated as ${copy.invoiceNumber}`);
-      navigate(`/invoices/${copy.id}`);
-    } catch (error) {
-      toast.error("Failed to duplicate invoice");
+      console.error(error);
     } finally {
       setIsProcessing(false);
     }
@@ -211,6 +217,22 @@ export default function InvoiceDetailPage() {
     }
   };
 
+  const handleFinalize = async () => {
+    try {
+      setIsProcessing(true);
+      await axiosInstance.patch(`/invoice/${invoice.id}/status`, { 
+        status: "PENDING"
+      });
+      toast.success("Invoice finalized and marked as Pending");
+      setFinalizeOpen(false);
+      fetchInvoice();
+    } catch (error) {
+      toast.error("Failed to finalize invoice");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleCancel = async () => {
     try {
       setIsProcessing(true);
@@ -220,6 +242,52 @@ export default function InvoiceDetailPage() {
       fetchInvoice();
     } catch (error) {
       toast.error("Failed to cancel invoice");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const openEdit = () => {
+    setEditForm({
+      clientId: invoice.clientId,
+      dueDate: invoice.dueDate ? invoice.dueDate.slice(0, 10) : todayISO(),
+      paymentTerms: invoice.paymentTerms || "due_on_receipt",
+      currency: invoice.currency || "IDR",
+      notes: invoice.notes || "",
+      terms: invoice.terms || "",
+      items: invoice.items.map((item: any) => ({ ...item }))
+    });
+    setEditOpen(true);
+  };
+
+  const submitEdit = async () => {
+    try {
+      setIsProcessing(true);
+      
+      const payload = {
+        clientId: editForm.clientId,
+        dueDate: editForm.dueDate,
+        paymentTerms: editForm.paymentTerms,
+        currency: editForm.currency,
+        notes: editForm.notes,
+        terms: editForm.terms,
+        items: editForm.items.map((item: any) => ({
+          productId: item.productId || undefined,
+          name: item.name,
+          description: item.description,
+          quantity: Number(item.quantity),
+          unitPrice: Number(item.unitPrice),
+          discount: Number(item.discount),
+          tax: Number(item.tax)
+        })),
+      };
+      await axiosInstance.patch(`/invoice/${invoice.id}`, payload);
+      toast.success("Invoice updated successfully!");
+      setEditOpen(false);
+      fetchInvoice(); 
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to update invoice");
+      console.error(error);
     } finally {
       setIsProcessing(false);
     }
@@ -239,16 +307,15 @@ export default function InvoiceDetailPage() {
         description={`${client?.company || client?.name || "Unknown client"} · ${paymentTermLabel(invoice.paymentTerms || "due_on_receipt")}`}
         actions={
           <>
-            <Button variant="outline" onClick={() => toast.info("Editing is disabled in this demo")}>
+            <Button 
+              variant="outline" 
+              onClick={openEdit} 
+              disabled={invoice.status === "paid" || invoice.status === "cancelled" || isProcessing}
+            >
               <Pencil className="size-4 mr-2" aria-hidden /> Edit
             </Button>
-            <Button variant="outline" onClick={handleDuplicate} disabled={isProcessing}>
-              <Copy className="size-4 mr-2" aria-hidden /> Duplicate
-            </Button>
-            <Button variant="outline" onClick={() => toast.success("PDF download started (demo only)")}>
-              <Download className="size-4 mr-2" aria-hidden /> Download PDF
-            </Button>
-            <Button onClick={openSend}>
+
+            <Button onClick={openSend} disabled={isProcessing}>
               <Send className="size-4 mr-2" aria-hidden /> Send
             </Button>
           </>
@@ -282,8 +349,19 @@ export default function InvoiceDetailPage() {
               </div>
 
               <div className="flex flex-col gap-2">
+                {invoice.status === "draft" && (
+                  <Button
+                    onClick={() => setFinalizeOpen(true)}
+                    disabled={isProcessing}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <CheckCircle2 className="size-4 mr-2" aria-hidden />
+                    Finalize to Pending
+                  </Button>
+                )}
+
                 <Button
-                  disabled={invoice.status === "paid" || invoice.status === "cancelled" || isProcessing}
+                  disabled={invoice.status === "draft" || invoice.status === "paid" || invoice.status === "cancelled" || isProcessing}
                   onClick={() => setMarkPaidOpen(true)}
                 >
                   <CheckCircle2 className="size-4 mr-2" aria-hidden />
@@ -387,6 +465,101 @@ export default function InvoiceDetailPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Edit Invoice {invoice?.number}</DialogTitle>
+            <DialogDescription>Make changes to your invoice details and items.</DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="edit-client">Client</Label>
+              <Select value={editForm.clientId} onValueChange={(val) => setEditForm({ ...editForm, clientId: val })}>
+                <SelectTrigger id="edit-client"><SelectValue placeholder="Select a client" /></SelectTrigger>
+                <SelectContent>
+                  {clients.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.company || c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-duedate">Due Date</Label>
+              <Input 
+                id="edit-duedate" 
+                type="date" 
+                value={editForm.dueDate} 
+                onChange={(e) => setEditForm({ ...editForm, dueDate: e.target.value })} 
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-terms">Payment Terms</Label>
+              <Select value={editForm.paymentTerms} onValueChange={(val) => setEditForm({ ...editForm, paymentTerms: val })}>
+                <SelectTrigger id="edit-terms"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {PAYMENT_TERMS.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-currency">Currency</Label>
+              <Select value={editForm.currency} onValueChange={(val) => setEditForm({ ...editForm, currency: val })}>
+                <SelectTrigger id="edit-currency"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="IDR">IDR - Indonesian Rupiah</SelectItem>
+                  <SelectItem value="USD">USD - US Dollar</SelectItem>
+                  <SelectItem value="EUR">EUR - Euro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="sm:col-span-2 mt-4">
+              <ItemsEditor 
+                items={editForm.items} 
+                products={products} 
+                onChange={(newItems) => setEditForm({ ...editForm, items: newItems })} 
+              />
+              <div className="ml-auto mt-6 w-full max-w-xs">
+                <TotalsSummary items={editForm.items} />
+              </div>
+            </div>
+
+            <div className="space-y-1.5 sm:col-span-2 mt-4">
+              <Label htmlFor="edit-notes">Notes</Label>
+              <Textarea 
+                id="edit-notes" 
+                rows={2} 
+                value={editForm.notes} 
+                onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} 
+              />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="edit-conditions">Terms & Conditions</Label>
+              <Textarea 
+                id="edit-conditions" 
+                rows={2} 
+                value={editForm.terms} 
+                onChange={(e) => setEditForm({ ...editForm, terms: e.target.value })} 
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setEditOpen(false)} disabled={isProcessing}>Cancel</Button>
+            <Button onClick={submitEdit} disabled={isProcessing}>
+              {isProcessing && <Loader2 className="mr-2 size-4 animate-spin" />}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <ConfirmationDialog
         open={markPaidOpen}
         onOpenChange={setMarkPaidOpen}
@@ -405,6 +578,15 @@ export default function InvoiceDetailPage() {
         cancelLabel="Keep invoice"
         destructive
         onConfirm={handleCancel}
+      />
+
+      <ConfirmationDialog
+        open={finalizeOpen}
+        onOpenChange={setFinalizeOpen}
+        title="Finalize this invoice?"
+        description={`This will change ${invoice?.number} from Draft to Pending status. Do this when the invoice is ready.`}
+        confirmLabel={isProcessing ? "Processing..." : "Finalize"}
+        onConfirm={handleFinalize}
       />
     </>
   );
