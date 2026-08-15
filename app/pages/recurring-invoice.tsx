@@ -34,7 +34,7 @@ const FREQUENCIES: { value: RecurringFrequency; label: string; days: number }[] 
 ];
 
 export default function RecurringPage() {
-  const { invoiceSettings } = useAppStore();
+  const { invoiceSettings, nextInvoiceNumber } = useAppStore();
 
   const [recurring, setRecurring] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
@@ -72,7 +72,7 @@ export default function RecurringPage() {
         frequency: inv.recurringInterval ? inv.recurringInterval.toLowerCase() : "monthly",
         startDate: inv.issueDate,
         endDate: inv.endDate ? inv.endDate.slice(0, 10) : null,
-        status: inv.reccurringStatus ? String(inv.recurringStatus).toLowerCase() : "active",
+        status: inv.recurringStatus ? String(inv.recurringStatus).toLowerCase() : "active",
         items: inv.items.map((item: any) => ({
           ...item,
           unitPrice: Number(item.unitPrice),
@@ -131,18 +131,21 @@ export default function RecurringPage() {
     const days = FREQUENCIES.find((f) => f.value === frequency)?.days ?? 30;
 
     const payload = {
+      number: editing ? editing.number : nextInvoiceNumber(),
+      currency: editing ? editing.currency : (invoiceSettings.currency || "IDR"),
       clientId,
       dueDate: startDate, 
       paymentTerms,
       isRecurring: true,
       recurringInterval: frequency.toUpperCase(),
       nextRecurringDate: addDaysISO(startDate, days),
+      endDate: endDate ? endDate : undefined,
       items: items.map((item) => ({
         productId: item.productId || undefined,
         name: item.name,
         description: item.description,
         quantity: Number(item.quantity),
-        price: Number(item.unitPrice),
+        unitPrice: Number(item.unitPrice),
         discount: Number(item.discount),
         tax: Number(item.tax),
       })),
@@ -170,7 +173,7 @@ export default function RecurringPage() {
     if (!statusTarget) return;
 
     try {      
-      await axiosInstance.patch(`/invoice/${statusTarget.schedule.id}/status`, {
+      await axiosInstance.patch(`/invoice/${statusTarget.schedule.id}`, {
         recurringStatus: statusTarget.status.toUpperCase(),
       });
 
@@ -178,6 +181,7 @@ export default function RecurringPage() {
       fetchData();
     } catch (error) {
       toast.error("Failed to update status");
+      console.error(error);
     } finally {
       setStatusTarget(null);
     }

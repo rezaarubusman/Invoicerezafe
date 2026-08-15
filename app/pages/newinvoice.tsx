@@ -114,6 +114,8 @@ export default function NewInvoicePage() {
     setIsSubmitting(true);
     try {
       const payload = {
+        number: previewNumber,
+        currency: invoiceSettings.currency || "IDR",
         clientId,
         dueDate,
         paymentTerms,
@@ -126,7 +128,7 @@ export default function NewInvoicePage() {
           name: item.name,
           description: item.description,
           quantity: Number(item.quantity),
-          price: Number(item.unitPrice), 
+          unitPrice: Number(item.unitPrice), 
           discount: Number(item.discount || 0),
           tax: Number(item.tax || 0),
         })),
