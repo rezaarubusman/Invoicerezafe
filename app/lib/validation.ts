@@ -256,7 +256,6 @@ export const invoiceSettingsSchema = z.object({
 
 export const profileSchema = z.object({
   name: z.string().trim().min(2, "Name is required").max(80),
-  email: emailSchema,
 });
 
 export const changePasswordSchema = z

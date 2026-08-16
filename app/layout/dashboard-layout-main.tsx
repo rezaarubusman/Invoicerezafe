@@ -1,42 +1,39 @@
 import { useEffect, useState } from "react";
-import { Navigate, Outlet, useLocation } from "react-router";
+import { Navigate, Outlet, useLocation } from "react-router"; 
 import { DashboardLayout } from "~/components/layout/dashboard-layout";
 import { useAuthStore } from "~/store/auth-store";
+import { axiosInstance } from "~/lib/axios"; 
 
 export default function DashboardLayoutRoute() {
   const location = useLocation();
-  const accessToken = useAuthStore(
-    (state) => state.accessToken
-  );
-  const isAuthenticated = useAuthStore(
-    (state) => state.isAuthenticated
-  );
-  const getCurrentUser = useAuthStore(
-    (state) => state.getCurrentUser
-  );
-  const clearAuth = useAuthStore(
-    (state) => state.clearAuth
-  );
-  const [checked, setChecked] =
-    useState(false);
+  
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const clearAuth = useAuthStore((state) => state.clearAuth);
+  const setAuth = useAuthStore((state) => state.setAuth); 
+
+  const [checked, setChecked] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
     const validateSession = async () => {
       if (!accessToken) {
-        setChecked(true);
+        if (!cancelled) setChecked(true);
         return;
       }
 
       try {
-        await getCurrentUser();
-      } catch {
-        clearAuth();
-      } finally {
-        if (!cancelled) {
-          setChecked(true);
+        const response = await axiosInstance.get("/auth/me");
+        
+        if (!cancelled && response.data?.user) {
+          setAuth(response.data.user, accessToken);
         }
+      } catch (error) {
+        console.error("Session validation failed:", error);
+        if (!cancelled) clearAuth();
+      } finally {
+        if (!cancelled) setChecked(true);
       }
     };
 
@@ -45,10 +42,11 @@ export default function DashboardLayoutRoute() {
     return () => {
       cancelled = true;
     };
-  }, [accessToken, clearAuth, getCurrentUser]);
+    
+  }, [accessToken]); 
 
   if (!checked) {
-    return null;
+    return null; 
   }
 
   if (!accessToken || !isAuthenticated) {

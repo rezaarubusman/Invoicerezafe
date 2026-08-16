@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -8,72 +9,74 @@ import { Input } from "~/components/ui/input";
 import { Field, FieldError, FieldLabel } from "~/components/ui/field";
 import { loginSchema, type LoginValues } from "~/lib/validation";
 import { useAuthStore } from "~/store/auth-store";
+import { axiosInstance } from "~/lib/axios";
 
 export function meta() {
   return [
-    {
-      title: "Login — Fakturia",
-    },
-    {
-      name: "description",
-      content: "Login",
-    },
-    {
-      property: "og:title",
-      content: "Login — Fakturia",
-    },
-    {
-      property: "og:description",
-      content: "Login.",
-    },
+    { title: "Login — Fakturia" },
+    { name: "description", content: "Login to your Fakturia account." },
   ];
 }
 
 export default function LoginPage() {
   const navigate = useNavigate();
-
-  const login = useAuthStore((state) => state.login);
-  const isLoading = useAuthStore((state) => state.isLoading);
+  const setAuth = useAuthStore((state) => state.setAuth);
+  const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
+    defaultValues: { email: "", password: "" },
   });
 
   const onSubmit = async (values: LoginValues) => {
     try {
-      await login(values);
+      setIsLoading(true);
 
-      toast.success("Logged in successfully");
+      const response = await axiosInstance.post("/auth/login", values);
+      const { user, accessToken, message } = response.data;
 
-      navigate("/dashboard");
+      setAuth(user, accessToken);
+
+      toast.success(message);
+      navigate("/dashboard", { replace: true });
     } catch (error: any) {
+      const status = error?.response?.status;
       const message =
-        error?.response?.data?.message ||
-        "Invalid email or password";
+        error?.response?.data?.message || "Invalid email or password";
 
       toast.error(message);
+
+      if (status === 403 && message.toLowerCase().includes("verify")) {
+        navigate(`/verify-email?email=${encodeURIComponent(values.email)}`);
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <AuthShell>
-      <form
-        className="space-y-4"
-        onSubmit={form.handleSubmit(onSubmit)}
-      >
+    <AuthShell
+      title="Welcome back"
+      description="Log in to continue managing your invoices and clients."
+      footer={
+        <>
+          Don't have an account?{" "}
+          <Link
+            to="/register"
+            className="font-medium text-primary hover:underline"
+          >
+            Create one
+          </Link>
+        </>
+      }
+    >
+      <form className="space-y-5" onSubmit={form.handleSubmit(onSubmit)}>
         <Controller
           name="email"
           control={form.control}
           render={({ field, fieldState }) => (
             <Field data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor={field.name}>
-                Email
-              </FieldLabel>
-
+              <FieldLabel htmlFor={field.name}>Email address</FieldLabel>
               <Input
                 {...field}
                 id={field.name}
@@ -82,7 +85,6 @@ export default function LoginPage() {
                 placeholder="you@company.id"
                 aria-invalid={fieldState.invalid}
               />
-
               {fieldState.invalid && (
                 <FieldError errors={[fieldState.error]} />
               )}
@@ -96,13 +98,10 @@ export default function LoginPage() {
           render={({ field, fieldState }) => (
             <Field data-invalid={fieldState.invalid}>
               <div className="flex items-center justify-between">
-                <FieldLabel htmlFor={field.name}>
-                  Password
-                </FieldLabel>
-
+                <FieldLabel htmlFor={field.name}>Password</FieldLabel>
                 <Link
                   to="/forgot-password"
-                  className="text-sm text-primary hover:underline"
+                  className="text-xs font-medium text-primary hover:underline"
                 >
                   Forgot password?
                 </Link>
@@ -123,23 +122,9 @@ export default function LoginPage() {
           )}
         />
 
-        <Button
-          type="submit"
-          className="w-full"
-          disabled={isLoading}
-        >
+        <Button type="submit" className="w-full" disabled={isLoading}>
           {isLoading ? "Logging in..." : "Log in"}
         </Button>
-
-        <p className="text-center text-sm text-muted-foreground">
-          Don't have an account?{" "}
-          <Link
-            to="/register"
-            className="text-primary hover:underline"
-          >
-            Create one
-          </Link>
-        </p>
       </form>
     </AuthShell>
   );

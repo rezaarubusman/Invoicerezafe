@@ -1,3 +1,4 @@
+import { useState } from "react"; 
 import { Link } from "react-router";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -8,30 +9,20 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Field, FieldError, FieldLabel } from "~/components/ui/field";
 import { forgotPasswordSchema } from "~/lib/validation";
-import { useAuthStore } from "~/store/auth-store";
+import { axiosInstance } from "~/lib/axios";
 
 export function meta() {
   return [
     { title: "Reset your password — Fakturia" },
-    {
-      name: "description",
-      content:
-        "Request a password reset link for your Fakturia account.",
-    },
-    {
-      property: "og:title",
-      content: "Reset your password — Fakturia",
-    },
-    {
-      property: "og:description",
-      content: "Request a password reset link.",
-    },
+    { name: "description", content: "Request a password reset link for your Fakturia account." },
   ];
 }
 
 type Values = z.infer<typeof forgotPasswordSchema>;
 
 export default function ForgotPasswordPage() {
+  const [isLoading, setIsLoading] = useState(false);
+
   const form = useForm<Values>({
     resolver: zodResolver(forgotPasswordSchema),
     defaultValues: {
@@ -39,26 +30,19 @@ export default function ForgotPasswordPage() {
     },
   });
 
-  const forgotPassword = useAuthStore(
-    (state) => state.forgotPassword
-  );
-
-  const isLoading = useAuthStore(
-    (state) => state.isLoading
-  );
-
   const onSubmit = async (values: Values) => {
     try {
-      const response =
-        await forgotPassword(values);
+      setIsLoading(true);
+      const response = await axiosInstance.post("/auth/forgot-password", values);
 
-      toast.success(response.message);
+      toast.success(response.data.message);
+      
+      form.reset();
     } catch (error: any) {
-      const message =
-        error?.response?.data?.message ||
-        "Failed to send reset link";
-
+      const message = error?.response?.data?.message || "Failed to send reset link";
       toast.error(message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -67,18 +51,12 @@ export default function ForgotPasswordPage() {
       title="Forgot your password?"
       description="Enter your email and we'll send you a reset link."
       footer={
-        <Link
-          to="/login"
-          className="hover:text-foreground"
-        >
+        <Link to="/login" className="hover:text-foreground">
           Back to login
         </Link>
       }
     >
-      <form
-        onSubmit={form.handleSubmit(onSubmit)}
-        className="space-y-4"
-      >
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <Controller
           name="email"
           control={form.control}
@@ -103,14 +81,8 @@ export default function ForgotPasswordPage() {
           )}
         />
 
-        <Button
-          type="submit"
-          className="w-full"
-          disabled={isLoading}
-        >
-          {isLoading
-            ? "Sending reset link..."
-            : "Send reset link"}
+        <Button type="submit" className="w-full" disabled={isLoading}>
+          {isLoading ? "Sending reset link..." : "Send reset link"}
         </Button>
       </form>
     </AuthShell>
