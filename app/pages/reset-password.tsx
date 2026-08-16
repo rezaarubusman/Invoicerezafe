@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -8,23 +9,12 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Field, FieldError, FieldLabel } from "~/components/ui/field";
 import { resetPasswordSchema } from "~/lib/validation";
-import { useAuthStore } from "~/store/auth-store";
+import { axiosInstance } from "~/lib/axios"; 
 
 export function meta() {
   return [
     { title: "Choose a new password — Fakturia" },
-    {
-      name: "description",
-      content: "Set a new password for your Fakturia account.",
-    },
-    {
-      property: "og:title",
-      content: "Choose a new password — Fakturia",
-    },
-    {
-      property: "og:description",
-      content: "Set a new password for your account.",
-    },
+    { name: "description", content: "Set a new password for your Fakturia account." },
   ];
 }
 
@@ -33,16 +23,9 @@ type Values = z.infer<typeof resetPasswordSchema>;
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-
   const token = searchParams.get("token");
 
-  const resetPassword = useAuthStore(
-    (state) => state.resetPassword
-  );
-
-  const isLoading = useAuthStore(
-    (state) => state.isLoading
-  );
+  const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<Values>({
     resolver: zodResolver(resetPasswordSchema),
@@ -59,23 +42,20 @@ export default function ResetPasswordPage() {
     }
 
     try {
-      const response =
-        await resetPassword({
+      setIsLoading(true);
+      const response = await axiosInstance.post("/auth/reset-password", {
         token,
         password: values.password,
-        confirmPassword:
-          values.confirmPassword,
       });
 
-      toast.success(response.message);
+      toast.success(response.data.message);
 
       navigate("/login");
     } catch (error: any) {
-      const message =
-        error?.response?.data?.message ||
-        "Failed to update password";
-
+      const message = error?.response?.data?.message || "Failed to update password";
       toast.error(message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -84,26 +64,19 @@ export default function ResetPasswordPage() {
       title="Choose a new password"
       description="Your new password must meet the security requirements."
       footer={
-        <Link
-          to="/login"
-          className="hover:text-foreground"
-        >
+        <Link to="/login" className="hover:text-foreground">
           Back to login
         </Link>
       }
     >
-      <form
-        className="space-y-4"
-        onSubmit={form.handleSubmit(onSubmit)}
-      >
+      <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
         <Controller
           name="password"
           control={form.control}
           render={({ field, fieldState }) => (
             <Field data-invalid={fieldState.invalid}>
               <FieldLabel htmlFor="password">
-                New password{" "}
-                <span className="text-destructive">*</span>
+                New password <span className="text-destructive">*</span>
               </FieldLabel>
 
               <Input
@@ -127,8 +100,7 @@ export default function ResetPasswordPage() {
           render={({ field, fieldState }) => (
             <Field data-invalid={fieldState.invalid}>
               <FieldLabel htmlFor="confirmPassword">
-                Confirm password{" "}
-                <span className="text-destructive">*</span>
+                Confirm password <span className="text-destructive">*</span>
               </FieldLabel>
 
               <Input
@@ -151,9 +123,7 @@ export default function ResetPasswordPage() {
           className="w-full"
           disabled={isLoading || !token}
         >
-          {isLoading
-            ? "Updating password..."
-            : "Update password"}
+          {isLoading ? "Updating password..." : "Update password"}
         </Button>
       </form>
     </AuthShell>

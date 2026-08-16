@@ -4,15 +4,9 @@ import { useAuthStore } from "~/store/auth-store";
 export const axiosInstance =
   axios.create({
     baseURL:
-      import.meta.env.VITE_BASE_URL_API ||
-      "http://localhost:8000",
+      import.meta.env.VITE_BASE_URL_API || "http://localhost:8000",
 
-    withCredentials: true,
-
-    headers: {
-      "Content-Type":
-        "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
   });
 
 axiosInstance.interceptors.request.use(

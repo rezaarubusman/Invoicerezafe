@@ -41,9 +41,8 @@ function fieldErrors(
 }
 
 export default function SettingsPage() {
-  const { updateUser } = useAppStore();
-  const changePassword = useAuthStore((state) => state.changePassword);
-  const isAuthLoading = useAuthStore((state) => state.isLoading);
+  const { updateUser, updateBusiness } = useAppStore();
+  const [isPwdLoading, setIsPwdLoading] = useState(false);
 
   const [isLoading, setIsLoading] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -104,6 +103,16 @@ export default function SettingsPage() {
             taxId: userData.businessProfile.taxId || "",
           });
           setLogo(userData.businessProfile.logoUrl || null);
+
+          updateBusiness({
+            name: userData.businessProfile.name || "",
+            email: userData.businessProfile.email || "",
+            phone: userData.businessProfile.phone || "",
+            address: userData.businessProfile.address || "",
+            website: userData.businessProfile.website || "",
+            taxId: userData.businessProfile.taxId || "",
+            logoDataUrl: userData.businessProfile.logoUrl || null,
+          });
         }
 
         if (userData.invoiceSetting) {
@@ -171,6 +180,10 @@ export default function SettingsPage() {
       
       toast.success("Business profile saved successfully");
       setSelectedFile(null); 
+      updateBusiness({
+        ...result.data,
+        logoDataUrl: logo
+      });
     } catch (error) {
       toast.error("Failed to save business profile");
     }
@@ -206,7 +219,7 @@ export default function SettingsPage() {
 
     try {
       await axiosInstance.patch("/user/profile", result.data);
-      updateUser(result.data); // Update global store state untuk UI header dll
+      updateUser(result.data); 
       toast.success("Profile updated successfully");
     } catch (error) {
       toast.error("Failed to update profile");
@@ -222,21 +235,26 @@ export default function SettingsPage() {
     }
 
     setPwdErrors({});
+    setIsPwdLoading(true); 
 
     try {
-      const response = await changePassword(result.data);
+      const { confirmPassword, ...payload } = result.data;
+      const response = await axiosInstance.patch("/auth/change-password", payload);
+      
       setPwd({
         currentPassword: "",
         newPassword: "",
         confirmPassword: "",
       });
-      toast.success(response.message || "Password updated successfully");
+      
+      toast.success(response.data.message || "Password updated successfully");
     } catch (error: any) {
       const message = error?.response?.data?.message || "Failed to update password";
       toast.error(message);
+    } finally {
+      setIsPwdLoading(false); 
     }
   };
-
 
   if (isLoading) {
     return (
@@ -502,13 +520,9 @@ export default function SettingsPage() {
                   <Input
                     id="u-email"
                     value={profile.email}
-                    onChange={(e) =>
-                      setProfile((f) => ({ ...f, email: e.target.value }))
-                    }
+                    disabled 
+                    className="bg-muted cursor-not-allowed"
                   />
-                  {profileErrors.email && (
-                    <p className="text-sm text-destructive">{profileErrors.email}</p>
-                  )}
                 </div>
               </div>
 
@@ -565,8 +579,8 @@ export default function SettingsPage() {
                 ))}
               </ul>
 
-              <Button disabled={isAuthLoading} onClick={handleSavePassword}>
-                {isAuthLoading ? "Updating password..." : "Update password"}
+              <Button disabled={isPwdLoading} onClick={handleSavePassword}>
+                {isPwdLoading ? "Updating password..." : "Update password"}
               </Button>
             </CardContent>
           </Card>

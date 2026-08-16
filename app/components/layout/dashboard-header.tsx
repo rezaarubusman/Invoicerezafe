@@ -3,10 +3,10 @@ import { Link, useLocation, useNavigate } from "react-router";
 import { Bell, LogOut, Menu, Plus, User } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
-import { Sheet,  SheetContent, SheetTitle, SheetTrigger } from "~/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "~/components/ui/sheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "~/components/ui/dropdown-menu";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "~/components/ui/breadcrumb";
-import { Avatar, AvatarFallback } from "~/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Badge } from "~/components/ui/badge";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { BrandMark, SidebarNav } from "./sidebar-nav";
@@ -14,6 +14,7 @@ import { useAppStore } from "~/store/app-store";
 import { useAuthStore } from "~/store/auth-store";
 import { formatDate, initials } from "~/lib/format";
 import { cn } from "~/lib/utils";
+import { axiosInstance } from "~/lib/axios";
 
 const LABELS: Record<string, string> = {
   dashboard: "Dashboard",
@@ -33,58 +34,52 @@ function useCrumbs() {
     .filter(Boolean);
 
   return segments.map((segment, index) => ({
-    label:
-      LABELS[segment] ??
-      decodeURIComponent(segment),
-
-    href: `/${segments
-      .slice(0, index + 1)
-      .join("/")}`,
-
-    last:
-      index === segments.length - 1,
+    label: LABELS[segment] ?? decodeURIComponent(segment),
+    href: `/${segments.slice(0, index + 1).join("/")}`,
+    last: index === segments.length - 1,
   }));
 }
 
 export function DashboardHeader() {
   const crumbs = useCrumbs();
-
-  const [mobileOpen, setMobileOpen] =
-    useState(false);
+  const navigate = useNavigate();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const {
     notifications,
     markAllNotificationsRead,
     user: appUser,
+    business,
   } = useAppStore();
 
-  const authUser = useAuthStore(
-    (state) => state.user
-  );
-
-  const logout = useAuthStore(
-    (state) => state.logout
-  );
+  const authUser = useAuthStore((state) => state.user);
+  
+  const clearAuth = useAuthStore((state) => state.clearAuth); 
 
   const user = {
     name: authUser?.name || appUser.name,
     email: authUser?.email || appUser.email,
   };
 
-  const navigate = useNavigate();
+  const unread = notifications.filter((n) => !n.read).length;
 
-  const unread = notifications.filter(
-    (notification) => !notification.read,
-  ).length;
+  const handleLogout = async () => {
+    try {
+      await axiosInstance.post("/auth/logout");
+    } catch (error) {
+      console.error("Logout failed on server:", error);
+    } finally {
+      clearAuth();
+      toast.success("You have been signed out");
+      navigate("/login", { replace: true });
+    }
+  };
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
-          <Sheet
-            open={mobileOpen}
-            onOpenChange={setMobileOpen}
-          >
+          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
               <Button
                 variant="outline"
@@ -96,23 +91,12 @@ export function DashboardHeader() {
               </Button>
             </SheetTrigger>
 
-            <SheetContent
-              side="left"
-              className="w-72 p-0"
-            >
-              <SheetTitle className="sr-only">
-                Navigation
-              </SheetTitle>
-
+            <SheetContent side="left" className="w-72 p-0">
+              <SheetTitle className="sr-only">Navigation</SheetTitle>
               <div className="border-b border-border p-4">
                 <BrandMark />
               </div>
-
-              <SidebarNav
-                onNavigate={() =>
-                  setMobileOpen(false)
-                }
-              />
+              <SidebarNav onNavigate={() => setMobileOpen(false)} />
             </SheetContent>
           </Sheet>
 
@@ -120,19 +104,13 @@ export function DashboardHeader() {
             <BreadcrumbList>
               <BreadcrumbItem className="hidden sm:inline-flex">
                 <BreadcrumbLink asChild>
-                  <Link to="/dashboard">
-                    Home
-                  </Link>
+                  <Link to="/dashboard">Home</Link>
                 </BreadcrumbLink>
               </BreadcrumbItem>
 
               {crumbs.map((crumb) => (
-                <span
-                  key={crumb.href}
-                  className="contents"
-                >
+                <span key={crumb.href} className="contents">
                   <BreadcrumbSeparator className="hidden sm:block" />
-
                   <BreadcrumbItem className="min-w-0">
                     {crumb.last ? (
                       <BreadcrumbPage className="truncate">
@@ -140,9 +118,7 @@ export function DashboardHeader() {
                       </BreadcrumbPage>
                     ) : (
                       <BreadcrumbLink asChild>
-                        <Link to={crumb.href}>
-                          {crumb.label}
-                        </Link>
+                        <Link to={crumb.href}>{crumb.label}</Link>
                       </BreadcrumbLink>
                     )}
                   </BreadcrumbItem>
@@ -153,21 +129,13 @@ export function DashboardHeader() {
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          <Button
-            asChild
-            size="sm"
-            className="hidden sm:inline-flex"
-          >
+          <Button asChild size="sm" className="hidden sm:inline-flex">
             <Link to="/invoices/new">
-              <Plus
-                className="size-4"
-                aria-hidden
-              />
+              <Plus className="size-4" aria-hidden />
               New Invoice
             </Link>
           </Button>
 
-          {/* Notifications */}
           <DropdownMenu
             onOpenChange={(open) => {
               if (open && unread > 0) {
@@ -180,14 +148,9 @@ export function DashboardHeader() {
                 variant="outline"
                 size="icon"
                 className="relative"
-                aria-label={`Notifications${
-                  unread
-                    ? `, ${unread} unread`
-                    : ""
-                }`}
+                aria-label={`Notifications${unread ? `, ${unread} unread` : ""}`}
               >
                 <Bell className="size-4" />
-
                 {unread > 0 ? (
                   <Badge className="absolute -right-1.5 -top-1.5 size-5 justify-center rounded-full p-0 text-[10px]">
                     {unread}
@@ -196,43 +159,31 @@ export function DashboardHeader() {
               </Button>
             </DropdownMenuTrigger>
 
-            <DropdownMenuContent
-              align="end"
-              className="w-80 p-0"
-            >
+            <DropdownMenuContent align="end" className="w-80 p-0">
               <DropdownMenuLabel className="px-4 py-3">
                 Notifications
               </DropdownMenuLabel>
-
               <DropdownMenuSeparator className="m-0" />
-
               <ScrollArea className="max-h-80">
-                {notifications.map(
-                  (notification) => (
-                    <div
-                      key={notification.id}
-                      className={cn(
-                        "border-b border-border px-4 py-3 last:border-0",
-                        !notification.read &&
-                          "bg-accent/40",
-                      )}
-                    >
-                      <p className="text-sm font-medium text-foreground">
-                        {notification.title}
-                      </p>
-
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {notification.description}
-                      </p>
-
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {formatDate(
-                          notification.date,
-                        )}
-                      </p>
-                    </div>
-                  ),
-                )}
+                {notifications.map((notification) => (
+                  <div
+                    key={notification.id}
+                    className={cn(
+                      "border-b border-border px-4 py-3 last:border-0",
+                      !notification.read && "bg-accent/40"
+                    )}
+                  >
+                    <p className="text-sm font-medium text-foreground">
+                      {notification.title}
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {notification.description}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {formatDate(notification.date)}
+                    </p>
+                  </div>
+                ))}
               </ScrollArea>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -245,26 +196,24 @@ export function DashboardHeader() {
                 aria-label="Account menu"
               >
                 <Avatar className="size-8">
+                  <AvatarImage 
+                    src={business.logoDataUrl || undefined} 
+                    alt={user.name} 
+                    className="object-cover" 
+                  />
                   <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
                     {initials(user.name)}
                   </AvatarFallback>
                 </Avatar>
-
                 <span className="hidden text-sm font-medium md:inline">
                   {user.name}
                 </span>
               </Button>
             </DropdownMenuTrigger>
 
-            <DropdownMenuContent
-              align="end"
-              className="w-56"
-            >
+            <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>
-                <p className="text-sm font-medium">
-                  {user.name}
-                </p>
-
+                <p className="text-sm font-medium">{user.name}</p>
                 <p className="truncate text-xs font-normal text-muted-foreground">
                   {user.email}
                 </p>
@@ -274,33 +223,15 @@ export function DashboardHeader() {
 
               <DropdownMenuItem asChild>
                 <Link to="/settings">
-                  <User
-                    className="size-4"
-                    aria-hidden
-                  />
+                  <User className="size-4" aria-hidden />
                   Profile & settings
                 </Link>
               </DropdownMenuItem>
 
               <DropdownMenuSeparator />
 
-              <DropdownMenuItem
-                onClick={async () => {
-                  navigate("/login", {
-                    replace: true,
-                  });
-
-                  await logout();
-
-                  toast.success(
-                    "You have been signed out",
-                  );
-                }}
-              >
-                <LogOut
-                  className="size-4"
-                  aria-hidden
-                />
+              <DropdownMenuItem onClick={handleLogout}>
+                <LogOut className="size-4" aria-hidden />
                 Log out
               </DropdownMenuItem>
             </DropdownMenuContent>

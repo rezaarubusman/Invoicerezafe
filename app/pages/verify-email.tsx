@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { MailCheck } from "lucide-react";
 import { toast } from "sonner";
@@ -7,23 +7,14 @@ import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
 import { Field, FieldLabel } from "~/components/ui/field";
 import { Input } from "~/components/ui/input";
-import { useAuthStore } from "~/store/auth-store";
+import { axiosInstance } from "~/lib/axios"; // 👈 Gunakan axiosInstance langsung
 
 export function meta() {
   return [
     { title: "Verify your email - Fakturia" },
-    {
-      name: "description",
-      content: "Confirm your email address to activate your workspace.",
-    },
-    {
-      property: "og:title",
-      content: "Verify your email - Fakturia",
-    },
-    {
-      property: "og:description",
-      content: "Confirm your email address to start invoicing.",
-    },
+    { name: "description", content: "Confirm your email address to activate your workspace." },
+    { property: "og:title", content: "Verify your email - Fakturia" },
+    { property: "og:description", content: "Confirm your email address to start invoicing." },
   ];
 }
 
@@ -33,59 +24,34 @@ export default function VerifyEmailPage() {
   const initialEmail = searchParams.get("email") ?? "";
 
   const [email, setEmail] = useState(initialEmail);
-  const [status, setStatus] = useState<
-    "pending" | "verified" | "resent" | "error"
-  >("pending");
+  const [status, setStatus] = useState<"pending" | "verified" | "resent" | "error">("pending");
+  
+  const [isLoading, setIsLoading] = useState(false);
 
-  const verifyEmail = useAuthStore(
-    (state) => state.verifyEmail
-  );
-
-  const resendVerification = useAuthStore(
-    (state) => state.resendVerification
-  );
-
-  const isLoading = useAuthStore(
-    (state) => state.isLoading
-  );
+  const hasFetched = useRef(false);
 
   useEffect(() => {
     if (!token) {
       return;
     }
 
-    let cancelled = false;
+    if (hasFetched.current) return;
+    hasFetched.current = true;
 
     const verify = async () => {
       try {
-        const response = await verifyEmail(token);
-
-        if (cancelled) {
-          return;
-        }
-
+        const response = await axiosInstance.post("/auth/verify-email", { token });
         setStatus("verified");
-        toast.success(response.message);
+        toast.success(response.data.message);
       } catch (error: any) {
-        if (cancelled) {
-          return;
-        }
-
-        const message =
-          error?.response?.data?.message ||
-          "Email verification failed";
-
+        const message = error?.response?.data?.message || "Email verification failed";
         setStatus("error");
         toast.error(message);
       }
     };
 
     verify();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [token, verifyEmail]);
+  }, [token]);
 
   const handleResend = async () => {
     if (!email) {
@@ -94,17 +60,17 @@ export default function VerifyEmailPage() {
     }
 
     try {
-      const response = await resendVerification(email);
+      setIsLoading(true);
+      const response = await axiosInstance.post("/auth/resend-verification", { email });
 
       setStatus("resent");
-      toast.success(response.message);
+      toast.success(response.data.message);
     } catch (error: any) {
-      const message =
-        error?.response?.data?.message ||
-        "Failed to resend verification email";
-
+      const message = error?.response?.data?.message || "Failed to resend verification email";
       setStatus("error");
       toast.error(message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -124,9 +90,7 @@ export default function VerifyEmailPage() {
         </span>
 
         <p className="text-sm font-medium text-foreground">
-          {status === "verified"
-            ? "Email verified"
-            : "Verification pending"}
+          {status === "verified" ? "Email verified" : "Verification pending"}
         </p>
 
         <p className="text-sm text-muted-foreground">
@@ -157,17 +121,12 @@ export default function VerifyEmailPage() {
       {status !== "verified" ? (
         <>
           <Field>
-            <FieldLabel htmlFor="email">
-              Email
-            </FieldLabel>
-
+            <FieldLabel htmlFor="email">Email</FieldLabel>
             <Input
               id="email"
               type="email"
               value={email}
-              onChange={(event) =>
-                setEmail(event.target.value)
-              }
+              onChange={(event) => setEmail(event.target.value)}
               placeholder="you@company.id"
             />
           </Field>
@@ -178,9 +137,7 @@ export default function VerifyEmailPage() {
             onClick={handleResend}
             disabled={isLoading}
           >
-            {isLoading
-              ? "Sending..."
-              : "Resend verification email"}
+            {isLoading ? "Sending..." : "Resend verification email"}
           </Button>
         </>
       ) : null}
